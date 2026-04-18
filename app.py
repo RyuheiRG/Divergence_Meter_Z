@@ -1,6 +1,7 @@
 import streamlit as st
-from core.stats_engine import generar_datos_sinteticos
 from core.stats_engine import generar_datos_sinteticos, calcular_prueba_z
+from ui.plots import renderizar_eda, renderizar_curva_z
+from ai.gemini_client import consultar_oraculo
 
 st.set_page_config(
     page_title="Divergence Meter Z",
@@ -28,6 +29,16 @@ if tipo_datos == "Generación Sintética":
     st.dataframe(df.head(10), use_container_width=True)
     st.caption(
         f"Mostrando los primeros 10 registros de un total de {n_muestras}.")
+
+    st.plotly_chart(renderizar_eda(df, 'Valor'), use_container_width=True)
+
+    st.markdown("**Evaluación humana de la distribución:**")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.radio("¿La distribución parece normal?", ["Sí", "No", "Incierto"])
+    with c2:
+        st.multiselect("Anomalías detectadas", [
+                       "Sesgo a la izquierda", "Sesgo a la derecha", "Outliers visibles", "Ninguna"])
 
     st.markdown("---")
     st.header("Motor de Hipótesis (Z-Test)")
@@ -67,7 +78,24 @@ if tipo_datos == "Generación Sintética":
 
         r_col4.metric("Región Crítica", criticos_str)
 
+        st.plotly_chart(renderizar_curva_z(resultados_stats),
+                        use_container_width=True)
+
         st.session_state['resultados_stats'] = resultados_stats
+
+        st.markdown("---")
+        st.header("🔮 Análisis Semántico (Gemini AI)")
+        st.info(
+            "El oráculo analizará el vector de resultados sin acceso a los datos crudos.")
+
+        if st.button("Generar Interpretación Automática"):
+            with st.spinner("Estableciendo conexión con la API de Gemini..."):
+                # Recuperamos el estado inmutable desde la sesión
+                payload = st.session_state['resultados_stats']
+                respuesta_ia = consultar_oraculo(payload)
+
+                st.success("Análisis completado.")
+                st.markdown(f"> *{respuesta_ia}*")
 
     except ValueError as e:
         st.error(f"Error de Integridad: {e}")
